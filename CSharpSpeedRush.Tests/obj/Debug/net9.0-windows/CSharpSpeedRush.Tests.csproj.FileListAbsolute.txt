@@ -4,3 +4,4 @@ C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\ne
 C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0-windows\CSharpSpeedRush.Tests.AssemblyInfoInputs.cache
 C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0-windows\CSharpSpeedRush.Tests.AssemblyInfo.cs
 C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0-windows\CSharpSpeedRush.Tests.csproj.CoreCompileInputs.cache
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0-windows\CSharpSpeedRush.Tests.sourcelink.json

@@ -28,7 +28,7 @@ namespace CSharpSpeedRush.Models
                 new Car("Formula Lightning", CarType.Formula, 160, 18.0, 40)
             };
             _actionHistory = new Queue<ActionType>();
-            TotalRaceTime = TimeSpan.FromMinutes(10);
+            TotalRaceTime = TimeSpan.FromMinutes(3);
         }
 
         public List<Car> GetAvailableCars() => _cars.ToList();
@@ -40,6 +40,7 @@ namespace CSharpSpeedRush.Models
 
             SelectedCar = car ?? throw new ArgumentNullException(nameof(car));
             SelectedCar.Reset();
+            OnStateChanged("Car selected: " + car.Name);
         }
 
         public void StartRace(TimeSpan raceDuration)

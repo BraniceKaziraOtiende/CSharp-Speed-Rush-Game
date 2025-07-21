@@ -11,7 +11,8 @@ namespace CSharpSpeedRush
     {
         private readonly RaceManager _raceManager;
         private readonly DispatcherTimer _gameTimer;
-        private readonly TimeSpan _totalRaceTime = TimeSpan.FromMinutes(10);
+        private readonly TimeSpan _totalRaceTime = TimeSpan.FromMinutes(3);
+        private TimeSpan _elapsedTime = TimeSpan.Zero;
 
         public MainWindow()
         {
@@ -26,6 +27,7 @@ namespace CSharpSpeedRush
             _raceManager.StateChanged += RaceManager_StateChanged;
             InitializeTimer();
             PopulateCarSelection();
+            UpdateCarStats();
             UpdateUI();
         }
 
@@ -39,23 +41,41 @@ namespace CSharpSpeedRush
         {
             if (_raceManager.CurrentState == RaceState.Racing)
             {
+                _elapsedTime = _elapsedTime.Add(TimeSpan.FromSeconds(1));
                 _raceManager.AdvanceTime(TimeSpan.FromSeconds(1));
                 UpdateUI();
 
                 if (_raceManager.RemainingTime <= TimeSpan.Zero)
                 {
-                    EndRace("⏰ Time's Up!\nYou ran out of time!\nFinal Lap: " + _raceManager.CurrentLap);
+                    _gameTimer.Stop();
+                    MessageBox.Show($"⏰ TIME'S UP!\n\nLaps Completed: {_raceManager.CurrentLap - 1}/5",
+                                  "Race Finished", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ResetAfterRace();
                 }
                 else if (_raceManager.SelectedCar?.CurrentFuel <= 0)
                 {
-                    EndRace("⛽ Out of Fuel!\nRace Over!\nFinal Lap: " + _raceManager.CurrentLap);
+                    _gameTimer.Stop();
+                    MessageBox.Show($"⛽ OUT OF FUEL!\n\nLaps Completed: {_raceManager.CurrentLap - 1}/5",
+                                  "Race Finished", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ResetAfterRace();
                 }
                 else if (_raceManager.CurrentLap > _raceManager.TotalLaps)
                 {
-                    var timeTaken = _raceManager.TotalRaceTime - _raceManager.RemainingTime;
-                    EndRace($"🏆 Race Completed!\nTime: {timeTaken:mm\\:ss}\nCongratulations!");
+                    _gameTimer.Stop();
+                    MessageBox.Show($"🏆 RACE COMPLETED!\n\nTime: {_elapsedTime:mm\\:ss}",
+                                  "Race Finished", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ResetAfterRace();
                 }
             }
+        }
+
+        private void ResetAfterRace()
+        {
+            StartButton.IsEnabled = true;
+            CarComboBox.IsEnabled = true;
+            EnableActionButtons(false);
+            _raceManager.CurrentState = RaceState.NotStarted;
+            UpdateUI();
         }
 
         private void PopulateCarSelection()
@@ -65,12 +85,31 @@ namespace CSharpSpeedRush
             CarComboBox.SelectedIndex = 0;
         }
 
+        private void UpdateCarStats()
+        {
+            if (_raceManager.SelectedCar == null)
+            {
+                CarStatsText.Text = "No car selected";
+                return;
+            }
+
+            var car = _raceManager.SelectedCar;
+            CarStatsText.Text =
+                $"Name: {car.Name}\n" +
+                $"Type: {car.Type}\n" +
+                $"Max Speed: {car.MaxSpeed} mph\n" +
+                $"Fuel Capacity: {car.FuelCapacity} L\n" +
+                $"Consumption: {car.FuelConsumptionRate:0.0} L/km\n" +
+                $"Current Speed: {car.CurrentSpeed} mph";
+        }
+
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 if (CarComboBox.SelectedItem is Car selectedCar)
                 {
+                    _elapsedTime = TimeSpan.Zero;
                     _raceManager.SelectCar(selectedCar);
                     _raceManager.StartRace(_totalRaceTime);
                     _gameTimer.Start();
@@ -78,7 +117,7 @@ namespace CSharpSpeedRush
                     CarComboBox.IsEnabled = false;
                     EnableActionButtons(true);
                     AddToLog("🏁 Race started! Good luck!");
-                    RaceCompleteOverlay.Visibility = Visibility.Collapsed;
+                    UpdateCarStats();
                 }
             }
             catch (Exception ex)
@@ -88,29 +127,13 @@ namespace CSharpSpeedRush
             }
         }
 
-        private void EndRace(string message)
-        {
-            _gameTimer.Stop();
-            EnableActionButtons(false);
-            RaceCompleteOverlay.Visibility = Visibility.Visible;
-            RaceResultText.Text = message;
-            UpdateUI();
-        }
-
-        private void RestartButton_Click(object sender, RoutedEventArgs e)
-        {
-            RaceCompleteOverlay.Visibility = Visibility.Collapsed;
-            StartButton.IsEnabled = true;
-            StartButton.Content = "🚀 Start Race";
-            CarComboBox.IsEnabled = true;
-        }
-
         private void ExecuteAction(ActionType action)
         {
             try
             {
                 _raceManager.ExecuteAction(action);
                 UpdateUI();
+                UpdateCarStats();
                 AddToLog($"Action: {action} executed");
             }
             catch (Exception ex)
@@ -123,8 +146,9 @@ namespace CSharpSpeedRush
         {
             if (_raceManager.SelectedCar == null) return;
 
-            // Update time display
-            TimeText.Text = _raceManager.RemainingTime.ToString(@"mm\:ss");
+            // Update time displays
+            ElapsedTimeText.Text = _elapsedTime.ToString(@"mm\:ss");
+            RemainingTimeText.Text = _raceManager.RemainingTime.ToString(@"mm\:ss");
             TimeProgressBar.Value = _raceManager.RemainingTime.TotalSeconds;
 
             // Update other UI elements
@@ -140,7 +164,7 @@ namespace CSharpSpeedRush
 
         private void AddToLog(string message)
         {
-            var lines = ActionLogText.Text.Split('\n').Take(100);
+            var lines = ActionLogText.Text.Split('\n').Take(50);
             ActionLogText.Text = $"{DateTime.Now:T} - {message}\n{string.Join("\n", lines)}";
             ActionLogText.ScrollToHome();
         }
@@ -154,7 +178,11 @@ namespace CSharpSpeedRush
 
         private void RaceManager_StateChanged(object? sender, EventArgs e)
         {
-            Dispatcher.Invoke(UpdateUI);
+            Dispatcher.Invoke(() =>
+            {
+                UpdateUI();
+                UpdateCarStats();
+            });
         }
 
         private void SpeedUpButton_Click(object sender, RoutedEventArgs e) => ExecuteAction(ActionType.SpeedUp);
@@ -166,6 +194,7 @@ namespace CSharpSpeedRush
             if (CarComboBox.SelectedItem is Car selectedCar && _raceManager.CurrentState == RaceState.NotStarted)
             {
                 _raceManager.SelectCar(selectedCar);
+                UpdateCarStats();
                 UpdateUI();
             }
         }
