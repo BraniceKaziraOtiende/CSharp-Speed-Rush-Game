@@ -1,0 +1,5 @@
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0\CSharpSpeedRush.Tests.csproj.AssemblyReference.cache
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0\CSharpSpeedRush.Tests.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0\CSharpSpeedRush.Tests.AssemblyInfoInputs.cache
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0\CSharpSpeedRush.Tests.AssemblyInfo.cs
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0\CSharpSpeedRush.Tests.csproj.CoreCompileInputs.cache

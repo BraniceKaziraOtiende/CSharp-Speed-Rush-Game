@@ -1,0 +1,6 @@
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\bin\Debug\net9.0-windows\CoverletSourceRootsMapping_CSharpSpeedRush.Tests
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0-windows\CSharpSpeedRush.Tests.csproj.AssemblyReference.cache
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0-windows\CSharpSpeedRush.Tests.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0-windows\CSharpSpeedRush.Tests.AssemblyInfoInputs.cache
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0-windows\CSharpSpeedRush.Tests.AssemblyInfo.cs
+C:\Users\LENOVO\OneDrive\Desktop\C# Summative\CSharpSpeedRush.Tests\obj\Debug\net9.0-windows\CSharpSpeedRush.Tests.csproj.CoreCompileInputs.cache
