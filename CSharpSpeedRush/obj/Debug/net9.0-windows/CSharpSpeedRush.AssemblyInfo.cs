@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CSharpSpeedRush")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f8ecab6b9fbb88c3142583516861c0e1f4013361")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6361a6d88ab983809f9fb03ac6e5c8e532dc25ec")]
 [assembly: System.Reflection.AssemblyProductAttribute("CSharpSpeedRush")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CSharpSpeedRush")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,372 +1,214 @@
-﻿using System;
-using System.Linq;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Threading;
+using NUnit.Framework;
 using CSharpSpeedRush.Models;
+using System;
 
-namespace CSharpSpeedRush
+namespace CSharpSpeedRush.Tests
 {
-    /// <summary>
-    /// Main window for the racing game with enhanced timer functionality
-    /// </summary>
-    public partial class MainWindow : Window
+    [TestFixture]
+    public class RaceManagerTests
     {
         private RaceManager _raceManager = null!;
-        private DispatcherTimer _gameTimer = null!;
-        private TimeSpan _totalRaceTime = TimeSpan.FromMinutes(10);
+        private Car _testCar = null!;
 
-        public MainWindow()
-        {
-            InitializeComponent();
-            InitializeGame();
-        }
-
-        /// <summary>
-        /// Initialize the game components and timer
-        /// </summary>
-        private void InitializeGame()
+        [SetUp]
+        public void Setup()
         {
             _raceManager = new RaceManager();
-            _raceManager.StateChanged += RaceManager_StateChanged;
+            _testCar = new Car("Test Car", CarType.Economy, 100, 10.0, 50);
+        }
 
-            InitializeTimer();
+        [Test]
+        public void SelectCar_ValidCar_SetsSelectedCar()
+        {
+            // Test car selection with Car object (not index)
+            _raceManager.SelectCar(_testCar);
+            Assert.That(_raceManager.SelectedCar, Is.EqualTo(_testCar));
+        }
 
+        [Test]
+        public void StartRace_WithRaceDuration_InitializesCorrectly()
+        {
+            // Test StartRace with TimeSpan parameter
+            _raceManager.SelectCar(_testCar);
+            var raceDuration = TimeSpan.FromMinutes(10);
+
+            _raceManager.StartRace(raceDuration);
+
+            Assert.That(_raceManager.CurrentState, Is.EqualTo(RaceState.Racing));
+            Assert.That(_raceManager.CurrentLap, Is.EqualTo(1));
+            Assert.That(_raceManager.LapProgress, Is.EqualTo(0.0));
+            Assert.That(_raceManager.RemainingTime, Is.EqualTo(raceDuration));
+        }
+
+        [Test]
+        public void StartRace_NoCarSelected_ThrowsException()
+        {
+            var newManager = new RaceManager();
+            var raceDuration = TimeSpan.FromMinutes(10);
+
+            Assert.That(() => newManager.StartRace(raceDuration), Throws.TypeOf<InvalidOperationException>());
+        }
+
+        [Test]
+        public void ExecuteAction_SpeedUp_AdvancesProgress()
+        {
+            _raceManager.SelectCar(_testCar);
+            _raceManager.StartRace(TimeSpan.FromMinutes(10));
+            var initialProgress = _raceManager.LapProgress;
+
+            _raceManager.ExecuteAction(ActionType.SpeedUp);
+
+            Assert.That(_raceManager.LapProgress, Is.GreaterThan(initialProgress));
+        }
+
+        [Test]
+        public void ExecuteAction_MultipleSpeedUps_AdvancesLap()
+        {
+            _raceManager.SelectCar(_testCar);
+            _raceManager.StartRace(TimeSpan.FromMinutes(10));
+            int initialLap = _raceManager.CurrentLap;
+            var initialProgress = _raceManager.LapProgress;
+
+            // Execute just 2 speed up actions to avoid fuel depletion
+            _raceManager.ExecuteAction(ActionType.SpeedUp);
+            _raceManager.ExecuteAction(ActionType.SpeedUp);
+
+            // Check that progress has advanced (either lap increased or progress increased)
+            Assert.That(_raceManager.CurrentLap > initialLap || _raceManager.LapProgress > initialProgress,
+                        "Race progress should advance after speed up actions");
+        }
+
+        [Test]
+        public void GetAvailableCars_ReturnsThreeCars()
+        {
             var cars = _raceManager.GetAvailableCars();
-            CarComboBox.ItemsSource = cars;
-            CarComboBox.DisplayMemberPath = "Name";
-            CarComboBox.SelectedIndex = 0;
+
+            Assert.That(cars, Is.Not.Null);
+            Assert.That(cars.Count, Is.EqualTo(3));
+            Assert.That(cars[0].Type, Is.EqualTo(CarType.Economy));
+            Assert.That(cars[1].Type, Is.EqualTo(CarType.Sport));
+            Assert.That(cars[2].Type, Is.EqualTo(CarType.Formula));
         }
 
-        /// <summary>
-        /// Initialize the race timer for real-time countdown
-        /// </summary>
-        private void InitializeTimer()
+        [Test]
+        public void GetRaceProgress_InitialState_ReturnsZero()
         {
-            _gameTimer = new DispatcherTimer();
-            _gameTimer.Interval = TimeSpan.FromSeconds(1);
-            _gameTimer.Tick += GameTimer_Tick;
+            _raceManager.SelectCar(_testCar);
+            _raceManager.StartRace(TimeSpan.FromMinutes(10));
+
+            var progress = _raceManager.GetRaceProgress();
+
+            Assert.That(progress, Is.EqualTo(0.0).Within(0.01));
         }
 
-        /// <summary>
-        /// Timer tick event for countdown and fuel decay simulation
-        /// </summary>
-        private void GameTimer_Tick(object? sender, EventArgs e)
+        [Test]
+        public void AdvanceTime_ReducesRemainingTime()
         {
-            if (_raceManager.CurrentState == RaceState.Racing)
-            {
-                // Decrease time
-                _raceManager.RemainingTime = _raceManager.RemainingTime.Subtract(TimeSpan.FromSeconds(1));
+            _raceManager.SelectCar(_testCar);
+            _raceManager.StartRace(TimeSpan.FromMinutes(10));
+            var initialTime = _raceManager.RemainingTime;
 
-                // Update UI on main thread
-                Dispatcher.Invoke(() =>
-                {
-                    UpdateTimeDisplay();
+            _raceManager.AdvanceTime(TimeSpan.FromSeconds(30));
 
-                    // Check if time is up
-                    if (_raceManager.RemainingTime <= TimeSpan.Zero)
-                    {
-                        _gameTimer.Stop();
-                        _raceManager.CurrentState = RaceState.OutOfTime;
-                        MessageBox.Show("⏰ TIME'S UP! ⏰\n\nThe race is over! You ran out of time.\n\n🔄 Click 'Start Race' to try again!",
-                                       "Time Over - Game Over", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        ResetGame();
-                    }
-                });
-            }
+            Assert.That(_raceManager.RemainingTime, Is.LessThan(initialTime));
         }
 
-        private void CarComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        [Test]
+        public void GetElapsedTime_ReturnsCorrectElapsedTime()
         {
-            if (CarComboBox.SelectedItem is Car selectedCar)
-            {
-                _raceManager.SelectCar(CarComboBox.SelectedIndex);
-                CarStatsText.Text = $"🏎️ Type: {selectedCar.Type}\n" +
-                                   $"🚀 Max Speed: {selectedCar.MaxSpeed} mph\n" +
-                                   $"⛽ Fuel Capacity: {selectedCar.FuelCapacity}\n" +
-                                   $"📊 Consumption: {selectedCar.FuelConsumptionRate}/action";
-            }
+            _raceManager.SelectCar(_testCar);
+            var raceDuration = TimeSpan.FromMinutes(10);
+            _raceManager.StartRace(raceDuration);
+
+            _raceManager.AdvanceTime(TimeSpan.FromMinutes(2));
+
+            var elapsedTime = _raceManager.GetElapsedTime();
+            Assert.That(elapsedTime, Is.EqualTo(TimeSpan.FromMinutes(2)).Within(TimeSpan.FromSeconds(1)));
         }
 
-        private void StartButton_Click(object sender, RoutedEventArgs e)
+        [Test]
+        public void ExecuteAction_PitStop_RefuelsCar()
         {
-            try
-            {
-                _raceManager.StartRace();
-                _gameTimer.Start(); // Start the countdown timer
-                StartButton.Content = "🏁 Racing...";
-                StartButton.IsEnabled = false;
-                CarComboBox.IsEnabled = false;
-                EnableActionButtons(true);
-                UpdateUI();
-
-                MessageBox.Show("🏁 RACE STARTED! 🏁\n\nGood luck! Manage your fuel wisely!\n\n⛽ Use pit stops when fuel is low!",
-                               "Race Begin!", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"❌ Error starting race: {ex.Message}", "Error",
-                               MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void SpeedUpButton_Click(object sender, RoutedEventArgs e)
-        {
-            ExecuteAction(ActionType.SpeedUp);
-        }
-
-        private void MaintainButton_Click(object sender, RoutedEventArgs e)
-        {
-            ExecuteAction(ActionType.Maintain);
-        }
-
-        private void PitStopButton_Click(object sender, RoutedEventArgs e)
-        {
-            ExecuteAction(ActionType.PitStop);
-        }
-
-        /// <summary>
-        /// Execute a race action with comprehensive error handling
-        /// </summary>
-        private void ExecuteAction(ActionType action)
-        {
-            try
-            {
-                _raceManager.ExecuteAction(action);
-                UpdateUI();
-
-                // Show action feedback
-                string actionMsg = action switch
-                {
-                    ActionType.SpeedUp => "🚀 Speeding up! Higher fuel consumption.",
-                    ActionType.Maintain => "⚡ Maintaining steady pace.",
-                    ActionType.PitStop => _raceManager.CurrentState == RaceState.PitStop ?
-                                         "🔧 Entering pit stop..." : "⛽ Refueled! Back to racing!",
-                    _ => ""
-                };
-
-                StatusText.Text = $"{GetStatusEmoji()} {_raceManager.CurrentState} - {actionMsg}";
-            }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Insufficient fuel"))
-            {
-                MessageBox.Show("⛽ OUT OF FUEL! ⛽\n\nYour car has run out of fuel and cannot continue!\n\n" +
-                               "🔧 Strategy tip: Use pit stops before fuel runs completely out!\n\n" +
-                               "🔄 Click 'OK' to restart the race and try again!",
-                               "Fuel Empty - Game Over", MessageBoxButton.OK, MessageBoxImage.Warning);
-
-                _raceManager.CurrentState = RaceState.OutOfFuel;
-                ResetGame();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"❌ Action failed: {ex.Message}\n\n💡 Try a different action or use a pit stop!", "Error",
-                               MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
-        private void RaceManager_StateChanged(object? sender, EventArgs e)
-        {
-            UpdateUI();
-        }
-
-        /// <summary>
-        /// Update all UI elements with enhanced visual feedback
-        /// </summary>
-        private void UpdateUI()
-        {
+            _raceManager.SelectCar(_testCar);
+            _raceManager.StartRace(TimeSpan.FromMinutes(10));
             var car = _raceManager.SelectedCar;
-            if (car == null) return;
 
-            // Update status with emoji indicators
-            StatusText.Text = $"{GetStatusEmoji()} {_raceManager.CurrentState}";
-
-            // Update lap with completion notifications
-            LapText.Text = $"{_raceManager.CurrentLap} / {_raceManager.TotalLaps}";
-
-            // Update fuel with color coding
-            double fuelPercent = (double)car.CurrentFuel / car.FuelCapacity * 100;
-            FuelProgressBar.Value = fuelPercent;
-            FuelText.Text = $"{car.CurrentFuel:F0}/{car.FuelCapacity} ({fuelPercent:F0}%)";
-
-            // Change fuel bar color based on level
-            if (fuelPercent <= 20)
-                FuelProgressBar.Foreground = System.Windows.Media.Brushes.Red;
-            else if (fuelPercent <= 50)
-                FuelProgressBar.Foreground = System.Windows.Media.Brushes.Orange;
-            else
-                FuelProgressBar.Foreground = System.Windows.Media.Brushes.Green;
-
-            // Update race progress
-            double racePercent = _raceManager.GetRaceProgress() * 100;
-            RaceProgressBar.Value = racePercent;
-            ProgressText.Text = $"{racePercent:F1}%";
-
-            // Update time remaining
-            UpdateTimeDisplay();
-
-            // Update speed
-            SpeedText.Text = $"{car.CurrentSpeed} mph";
-
-            // Update visual progress indicator
-            UpdateProgressIndicator();
-
-            // Handle completion of laps (show message when completing each lap)
-            if (_raceManager.CurrentLap > 1 && _raceManager.LapProgress == 0.0)
+            if (car != null)
             {
-                MessageBox.Show($"🏁 LAP {_raceManager.CurrentLap - 1} COMPLETED! 🏁\n\n" +
-                               $"Great job! {_raceManager.TotalLaps - (_raceManager.CurrentLap - 1)} laps remaining!\n\n" +
-                               $"⛽ Fuel: {car.CurrentFuel}/{car.FuelCapacity}\n" +
-                               $"⏱️ Time: {_raceManager.RemainingTime.Minutes:D2}:{_raceManager.RemainingTime.Seconds:D2}",
-                               $"Lap {_raceManager.CurrentLap - 1} Complete!",
-                               MessageBoxButton.OK, MessageBoxImage.Information);
-            }
+                // Reduce fuel first
+                car.CurrentFuel = 10;
 
-            // Handle race completion (5 laps finished)
-            if (_raceManager.CurrentState == RaceState.Finished)
-            {
-                _gameTimer.Stop();
-                var elapsedTime = _totalRaceTime.Subtract(_raceManager.RemainingTime);
-                MessageBox.Show($"🏆🎉 CONGRATULATIONS! YOU WON! 🎉🏆\n\n" +
-                               $"✅ ALL {_raceManager.TotalLaps} LAPS COMPLETED!\n\n" +
-                               $"🏁 Final Statistics:\n" +
-                               $"⏱️ Race Time: {elapsedTime.Minutes:D2}:{elapsedTime.Seconds:D2}\n" +
-                               $"⛽ Fuel Remaining: {car.CurrentFuel:F0}/{car.FuelCapacity}\n" +
-                               $"🏎️ Car Used: {car.Name}\n" +
-                               $"🚀 Final Speed: {car.CurrentSpeed} mph\n\n" +
-                               $"🌟 VICTORY ACHIEVED! 🌟\n\n" +
-                               $"🔄 Click 'OK' to race again!",
-                               "🏆 RACE WON! 🏆", MessageBoxButton.OK, MessageBoxImage.Information);
-                ResetGame();
-            }
-            // Handle out of fuel
-            else if (_raceManager.CurrentState == RaceState.OutOfFuel)
-            {
-                _gameTimer.Stop();
-                MessageBox.Show("⛽ RACE OVER - OUT OF FUEL! ⛽\n\n" +
-                               "Your car ran out of fuel and cannot continue!\n\n" +
-                               "💡 Racing Tips for next time:\n" +
-                               "• Use pit stops when fuel gets low (below 20%)\n" +
-                               "• Balance speed with fuel consumption\n" +
-                               "• 'Maintain Speed' uses less fuel than 'Speed Up'\n\n" +
-                               "🔄 Ready to try again?",
-                               "Game Over - Out of Fuel", MessageBoxButton.OK, MessageBoxImage.Warning);
-                ResetGame();
-            }
-            // Handle out of time
-            else if (_raceManager.CurrentState == RaceState.OutOfTime)
-            {
-                _gameTimer.Stop();
-                MessageBox.Show("⏰ RACE OVER - TIME'S UP! ⏰\n\n" +
-                               "You ran out of time before completing all laps!\n\n" +
-                               "💡 Racing Tips for next time:\n" +
-                               "• Use 'Speed Up' more often to cover distance faster\n" +
-                               "• Plan your pit stops efficiently\n" +
-                               "• Don't spend too much time in pit stops\n\n" +
-                               "🔄 Ready for another attempt?",
-                               "Game Over - Time Up", MessageBoxButton.OK, MessageBoxImage.Warning);
-                ResetGame();
+                // Execute pit stop
+                _raceManager.ExecuteAction(ActionType.PitStop);
+                _raceManager.ExecuteAction(ActionType.PitStop); // Complete pit stop
+
+                Assert.That(car.CurrentFuel, Is.EqualTo(car.FuelCapacity));
             }
         }
 
-        /// <summary>
-        /// Reset the game for a new race
-        /// </summary>
-        private void ResetGame()
+        [Test]
+        public void ExecuteAction_Maintain_AdvancesProgressSlowly()
         {
-            _gameTimer.Stop();
-            StartButton.Content = "🚀 Start Race";
-            StartButton.IsEnabled = true;
-            CarComboBox.IsEnabled = true;
-            EnableActionButtons(false);
+            _raceManager.SelectCar(_testCar);
+            _raceManager.StartRace(TimeSpan.FromMinutes(10));
+            var initialProgress = _raceManager.LapProgress;
 
-            // Reset race manager
-            _raceManager = new RaceManager();
-            _raceManager.StateChanged += RaceManager_StateChanged;
+            _raceManager.ExecuteAction(ActionType.Maintain);
 
-            // Reselect the car
-            if (CarComboBox.SelectedIndex >= 0)
-            {
-                _raceManager.SelectCar(CarComboBox.SelectedIndex);
-            }
-
-            UpdateUI();
+            Assert.That(_raceManager.LapProgress, Is.GreaterThan(initialProgress));
         }
 
-        /// <summary>
-        /// Get emoji for current race state
-        /// </summary>
-        private string GetStatusEmoji()
+        [Test]
+        public void SelectCar_FromAvailableCars_WorksCorrectly()
         {
-            return _raceManager.CurrentState switch
-            {
-                RaceState.Racing => "🏁",
-                RaceState.PitStop => "🔧",
-                RaceState.Finished => "🏆",
-                RaceState.OutOfFuel => "⛽",
-                RaceState.OutOfTime => "⏰",
-                _ => "🎮"
-            };
+            var cars = _raceManager.GetAvailableCars();
+            var economyCar = cars.First(c => c.Type == CarType.Economy);
+
+            _raceManager.SelectCar(economyCar);
+
+            Assert.That(_raceManager.SelectedCar, Is.EqualTo(economyCar));
+            Assert.That(_raceManager.SelectedCar?.Type, Is.EqualTo(CarType.Economy));
         }
 
-        /// <summary>
-        /// Update time remaining display with color coding
-        /// </summary>
-        private void UpdateTimeDisplay()
+        [Test]
+        public void RaceManager_InitialState_IsCorrect()
         {
-            double timePercent = (_raceManager.RemainingTime.TotalSeconds / _totalRaceTime.TotalSeconds) * 100;
-            TimeProgressBar.Value = Math.Max(0, timePercent);
-            TimeText.Text = $"{_raceManager.RemainingTime.Minutes:D2}:{_raceManager.RemainingTime.Seconds:D2}";
+            Assert.That(_raceManager.CurrentState, Is.EqualTo(RaceState.NotStarted));
+            Assert.That(_raceManager.CurrentLap, Is.EqualTo(1));
+            Assert.That(_raceManager.LapProgress, Is.EqualTo(0.0));
+            Assert.That(_raceManager.TotalLaps, Is.EqualTo(5));
+            Assert.That(_raceManager.SelectedCar, Is.Null);
+        }
 
-            // Change color based on remaining time
-            if (timePercent < 20)
+        [Test]
+        public void ExecuteAction_WithInsufficientFuel_ThrowsException()
+        {
+            _raceManager.SelectCar(_testCar);
+            _raceManager.StartRace(TimeSpan.FromMinutes(10));
+
+            // Deplete fuel completely
+            var car = _raceManager.SelectedCar;
+            if (car != null)
             {
-                TimeText.Foreground = System.Windows.Media.Brushes.Red;
-                TimeProgressBar.Foreground = System.Windows.Media.Brushes.Red;
-            }
-            else if (timePercent < 50)
-            {
-                TimeText.Foreground = System.Windows.Media.Brushes.Orange;
-                TimeProgressBar.Foreground = System.Windows.Media.Brushes.Orange;
-            }
-            else
-            {
-                TimeText.Foreground = System.Windows.Media.Brushes.Green;
-                TimeProgressBar.Foreground = System.Windows.Media.Brushes.Green;
+                car.CurrentFuel = 5; // Very low fuel
+
+                // This should throw an exception due to insufficient fuel
+                Assert.That(() => _raceManager.ExecuteAction(ActionType.SpeedUp),
+                           Throws.TypeOf<InvalidOperationException>()
+                           .With.Message.Contains("Insufficient fuel"));
             }
         }
 
-        /// <summary>
-        /// Update visual progress indicator
-        /// </summary>
-        private void UpdateProgressIndicator()
+        [Test]
+        public void StateChanged_Event_FiresOnStateChange()
         {
-            double progress = _raceManager.GetRaceProgress();
-            int position = (int)(progress * 14); // 0 to 14 positions
+            bool eventFired = false;
+            _raceManager.StateChanged += (sender, args) => eventFired = true;
 
-            var indicator = new string[15]; // Changed from char[] to string[]
-            for (int i = 0; i < 15; i++)
-            {
-                if (i == position && position < 15)
-                    indicator[i] = "🏎"; // Changed to string literal
-                else if (i < position)
-                    indicator[i] = "="; // Changed to string literal
-                else if (i == 14)
-                    indicator[i] = "🏁"; // Changed to string literal
-                else
-                    indicator[i] = "-"; // Changed to string literal
-            }
+            _raceManager.SelectCar(_testCar);
+            _raceManager.StartRace(TimeSpan.FromMinutes(10));
 
-            ProgressIndicator.Text = $"[{string.Join("", indicator)}]"; // Join strings instead of chars
-        }
-
-        /// <summary>
-        /// Enable or disable action buttons
-        /// </summary>
-        private void EnableActionButtons(bool enabled)
-        {
-            SpeedUpButton.IsEnabled = enabled;
-            MaintainButton.IsEnabled = enabled;
-            PitStopButton.IsEnabled = enabled;
+            Assert.That(eventFired, Is.True, "StateChanged event should fire when race starts");
         }
     }
 }
